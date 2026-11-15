@@ -25,7 +25,9 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Car screen (landscape, glanceable). Three columns:
+ * Car screen following the Pleos Connect UI Design Guide: dark system tokens, no own status
+ * bar (status bar / driving view / GNB belong to the system), glanceable text (max 3 lines),
+ * landscape = three columns, portrait / split window = stacked. Columns:
  *  left   – driving load + vehicle context (why the car is quiet or talking)
  *  centre – today's question / recall card and the few big buttons
  *  right  – this week's family feed, places and milestones
@@ -68,6 +70,12 @@ class MainActivity : Activity() {
         requestNeededPermissions()
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        setContentView(buildLayout())
+        lastState?.let { render(it) }
+    }
+
     override fun onDestroy() {
         demo.cancel()
         if (started) session.stop()
@@ -103,22 +111,31 @@ class MainActivity : Activity() {
 
         // header
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        header.addView(text("로드메모리", 30f, TEXT, bold = true))
-        header.addView(text("  길 위의 가족 일기", 18f, MUTED))
+        header.addView(text("로드메모리", 24f, TEXT, bold = true))
         header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        modeChip = text("일상 모드", 18f, BG, bold = true).apply {
-            background = rounded(ACCENT, 40)
+        modeChip = text("일상 모드", 16f, TEXT, bold = true).apply {
+            background = rounded(CARD2, 40)
             setPadding(dp(18), dp(6), dp(18), dp(6))
         }
         header.addView(modeChip)
         root.addView(header)
 
-        val columns = row().apply { setPadding(0, dp(16), 0, dp(12)) }
-        columns.addView(leftColumn(), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
-        columns.addView(space(dp(18)))
-        columns.addView(centerColumn(), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.5f))
-        columns.addView(space(dp(18)))
-        columns.addView(rightColumn(), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.1f))
+        // Pleos Connect app windows can be landscape or portrait (split screen): adapt both.
+        val portrait = resources.configuration.screenHeightDp > resources.configuration.screenWidthDp
+        val columns = LinearLayout(this).apply {
+            orientation = if (portrait) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            setPadding(0, dp(16), 0, dp(12))
+        }
+        fun lp(w: Float) = if (portrait) {
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, w)
+        } else {
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, w)
+        }
+        columns.addView(centerColumn(), lp(1.5f))
+        columns.addView(space(dp(16)))
+        columns.addView(leftColumn(), lp(1f))
+        columns.addView(space(dp(16)))
+        columns.addView(rightColumn(), lp(1.1f))
         root.addView(columns, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         root.addView(bottomBar())
@@ -149,6 +166,8 @@ class MainActivity : Activity() {
         cardLabel = text("오늘의 한 질문", 18f, ACCENT, bold = true)
         addView(cardLabel)
         cardText = text("주행을 시작하면, 여유가 있을 때 한 가지만 물어볼게요.", 30f, TEXT, bold = true).apply {
+            maxLines = 3
+            ellipsize = android.text.TextUtils.TruncateAt.END
             setPadding(0, dp(12), 0, dp(12))
             setLineSpacing(dp(4).toFloat(), 1f)
         }
@@ -229,7 +248,7 @@ class MainActivity : Activity() {
         if (!::modeChip.isInitialized) return
 
         modeChip.text = if (s.mode == TripMode.TRAVEL) "여행 모드" else "일상 모드"
-        modeChip.background = rounded(if (s.mode == TripMode.TRAVEL) MINT else ACCENT, 40)
+        modeChip.background = rounded(CARD2, 40)
         travelButton.text = if (s.mode == TripMode.TRAVEL) "일상 모드로" else "여행 모드"
 
         val tierColor = when (s.load.tier) {
@@ -289,7 +308,10 @@ class MainActivity : Activity() {
                 background = rounded(CARD2, 14)
             }
             item.addView(text("${timeFormat.format(Date(m.createdAt))}  ${m.tags.joinToString(" ") { "#$it" }}", 13f, MUTED))
-            item.addView(text(m.summary, 17f, TEXT))
+            item.addView(text(m.summary, 17f, TEXT).apply {
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
             item.addView(text("Q. ${m.question}", 13f, MUTED))
             feedList.addView(item, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = dp(8)
@@ -306,7 +328,7 @@ class MainActivity : Activity() {
 
     private fun weight() = LinearLayout.LayoutParams(0, dp(72), 1f)
 
-    private fun space(w: Int) = View(this).apply { layoutParams = LinearLayout.LayoutParams(w, 1) }
+    private fun space(w: Int) = View(this).apply { layoutParams = LinearLayout.LayoutParams(w, w) }
 
     private fun card() = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -361,14 +383,15 @@ class MainActivity : Activity() {
             "pleos.car.permission.CAR_SAFETY",
         )
 
-        private val BG = Color.parseColor("#0E1116")
-        private val CARD = Color.parseColor("#171C24")
-        private val CARD2 = Color.parseColor("#222935")
-        private val TEXT = Color.parseColor("#F1F3F6")
-        private val MUTED = Color.parseColor("#8A94A6")
-        private val ACCENT = Color.parseColor("#F2B84B")
-        private val MINT = Color.parseColor("#7FD1B9")
-        private val GREEN = Color.parseColor("#5BD18B")
-        private val RED = Color.parseColor("#FF6B6B")
+        // Pleos Connect UI Design Guide, dark theme tokens
+        private val BG = Color.parseColor("#1D1E21")      // background_secondary (basic_00)
+        private val CARD = Color.parseColor("#313236")    // background_primary (basic_50)
+        private val CARD2 = Color.parseColor("#44464E")   // button_filled_enabled (basic_600)
+        private val TEXT = Color.parseColor("#FFFFFF")
+        private val MUTED = Color.parseColor("#A3A5AB")
+        private val ACCENT = Color.parseColor("#FFFFFF")  // monochrome system UI: emphasis = white
+        private val MINT = Color.parseColor("#D6D7DA")
+        private val GREEN = Color.parseColor("#4CC38A")   // informative: safe
+        private val RED = Color.parseColor("#F2655C")     // informative: caution
     }
 }
