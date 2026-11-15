@@ -72,7 +72,8 @@ adb install -r "apk/로드메이트_RoadMemory_release.apk"
 |---|---|
 | 에뮬레이터 | Pleos Connect Emulator v2.1.0 |
 | AVD | Android Automotive, API 34, RAM 4GB, Cold boot |
-| 화면 규격 | 가로형 차량 디스플레이 (landscape 고정, 3단 레이아웃) |
+| 화면 규격 | Pleos Connect-S / Connect-W 앱 윈도우. 가로는 3단, 세로나 분할 화면은 세로 스택으로 자동 전환 |
+| UI 기준 | Pleos Connect UI Design Guide 다크 토큰(background #1D1E21 / #313236, button #44464E), 자체 상태바 없음, 문단 3줄 이내 |
 | minSdk / targetSdk | 28 / 35 |
 | 빌드 도구 | Gradle 8.10.2, AGP 8.8.2, Kotlin 2.0.0, JDK 17 |
 | 필요 권한 | `RECORD_AUDIO`, `pleos.car.permission.FUSED_LOCATION`, `TTS_SERVICE`, `STT_SERVICE`, `NAVI_ROUTE`, `CAR_DRIVE`, `CAR_INFO`, `CAR_LIGHTS`, `CAR_WINDOWS`, `CAR_SEATS`, `CAR_SAFETY` |
