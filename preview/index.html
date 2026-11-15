@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로드메모리 미리보기</title>
+<style>
+  :root {
+    --bg:#0E1116; --card:#171C24; --card2:#222935; --text:#F1F3F6; --muted:#8A94A6;
+    --accent:#F2B84B; --mint:#7FD1B9; --green:#5BD18B; --red:#FF6B6B;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#05070a; color:var(--text); font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif; }
+  .note { max-width:1440px; margin:16px auto 8px; padding:0 16px; color:var(--muted); font-size:14px; }
+  .screen { max-width:1440px; min-height:540px; margin:0 auto 24px; background:var(--bg); border-radius:18px;
+            padding:22px 28px 16px; display:flex; flex-direction:column; box-shadow:0 0 0 10px #12161d, 0 20px 60px #0008; }
+  header { display:flex; align-items:center; gap:12px; }
+  header h1 { margin:0; font-size:28px; }
+  header .sub { color:var(--muted); font-size:17px; }
+  header .chip { margin-left:auto; background:var(--accent); color:var(--bg); font-weight:700; padding:6px 18px; border-radius:40px; font-size:17px; }
+  .cols { flex:1; display:grid; grid-template-columns:1fr 1.5fr 1.1fr; gap:18px; margin:14px 0 12px; min-height:0; }
+  .card { background:var(--card); border-radius:22px; padding:20px 22px; display:flex; flex-direction:column; min-height:0; }
+  .label { color:var(--muted); font-size:15px; }
+  .score { display:flex; align-items:baseline; gap:10px; }
+  .score b { font-size:54px; }
+  .score span { font-size:20px; font-weight:700; }
+  .bar { height:14px; background:#2a313d; border-radius:8px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; background:var(--green); transition:width .4s, background .4s; }
+  .reasons { color:var(--muted); font-size:14px; margin:8px 0 16px; min-height:20px; }
+  .vinfo { font-size:17px; line-height:1.75; white-space:pre-line; }
+  .qlabel { color:var(--accent); font-weight:700; font-size:17px; }
+  .qtext { font-size:28px; font-weight:700; line-height:1.4; margin:12px 0; flex:1; }
+  .transcript { color:var(--mint); font-size:19px; min-height:26px; }
+  .status { color:var(--muted); font-size:15px; margin:6px 0 12px; }
+  .btns { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  button { background:var(--card2); color:var(--text); border:0; border-radius:16px; font-size:18px; padding:20px 8px; cursor:pointer; font-family:inherit; }
+  button:hover { filter:brightness(1.2); }
+  .feed { overflow:auto; flex:1; margin-top:8px; }
+  .item { background:var(--card2); border-radius:14px; padding:10px 12px; margin-bottom:8px; }
+  .item .m { color:var(--muted); font-size:12px; }
+  .item .s { font-size:16px; margin:2px 0; }
+  .ms { color:var(--accent); font-size:14px; white-space:pre-line; margin-top:6px; }
+  .bottom { display:flex; align-items:center; gap:14px; font-size:16px; }
+  .bottom label { display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .bottom .muted { color:var(--muted); font-size:14px; }
+  .bottom .sp { flex:1; }
+  .bottom button { font-size:14px; padding:10px 14px; background:var(--card); }
+  input[type=checkbox] { width:20px; height:20px; accent-color:var(--accent); }
+  @media (max-width: 980px) {
+    .cols { grid-template-columns:1fr; }
+    .feed { max-height:260px; }
+    .bottom { flex-wrap:wrap; }
+    .qtext { font-size:24px; }
+  }
+</style>
+</head>
+<body>
+<p class="note">로드메모리 차량 화면 웹 미리보기입니다. 앱(Kotlin)의 엔진 로직을 그대로 옮겼고, 음성은 브라우저 TTS로 재생합니다. 실제 APK는 Pleos Connect 에뮬레이터에서 실행합니다. <b>데모 주행 시작</b>을 누르면 약 40초 등원길이 재생됩니다.</p>
+<div class="screen">
+  <header><h1>로드메모리</h1><span class="sub">길 위의 가족 일기</span><span class="chip" id="chip">일상 모드</span></header>
+  <div class="cols">
+    <div class="card">
+      <div class="label">운전 부담</div>
+      <div class="score"><b id="score">0</b><span id="tier" style="color:var(--green)">여유 · 대화 가능</span></div>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="reasons" id="reasons">부담 요인 없음</div>
+      <div class="label">차량 맥락</div>
+      <div class="vinfo" id="vinfo"></div>
+    </div>
+    <div class="card">
+      <div class="qlabel" id="qlabel">오늘의 한 질문</div>
+      <div class="qtext" id="qtext">주행을 시작하면, 여유가 있을 때 한 가지만 물어볼게요.</div>
+      <div class="transcript" id="transcript"></div>
+      <div class="status" id="status">대기 중 · 기어를 D로 바꾸면 기록을 시작해요</div>
+      <div class="btns">
+        <button id="askBtn">지금 질문</button>
+        <button id="travelBtn">여행 모드</button>
+        <button id="endBtn">도착 처리</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-weight:700;font-size:17px" id="feedHeader">이번 주 가족 피드</div>
+      <div class="feed" id="feed"></div>
+      <div class="ms" id="ms"></div>
+    </div>
+  </div>
+  <div class="bottom">
+    <label><input type="checkbox" id="consent"> 가족 기록 동의</label>
+    <label><input type="checkbox" id="pet"> 반려견 동승</label>
+    <span class="muted">원문 7일 후 자동 삭제</span>
+    <span class="sp"></span>
+    <button id="demoBtn">데모 주행 시작</button>
+    <button id="sampleBtn">예시 답변</button>
+    <button id="clearBtn">기록 전체 삭제</button>
+  </div>
+</div>
+<script>
+// ---- data ---------------------------------------------------------------------------------
+const DAY = 86400000;
+const KEY = 'roadmemory-preview';
+let db = { consent:false, places:[], moments:[], milestones:[] };
+try { const s = localStorage.getItem(KEY); if (s) db = JSON.parse(s); } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} }
+const uid = () => Math.random().toString(36).slice(2);
+
+// ---- live state (what the SDK adapters would deliver) ---------------------------------------
+const V = { gear:'UNKNOWN', turn:'OFF', wiper:false, brake:false, front:false, rearL:false, rearR:false };
+const L = { lat:0, lon:0, speed:0, accel:0, ts:0 };
+const N = { active:false, dest:null, dist:null, text:null };
+let mode = 'DAILY', trip = null, phase = 'IDLE', paused = false, pet = false;
+let question = null, transcript = null, status = '대기 중 · 기어를 D로 바꾸면 기록을 시작해요', lastGear = 'UNKNOWN';
+let load = { score:0, tier:'FREE', reasons:[] };
+const asked = [];
+
+// ---- engines (ported from app/src/main/java/com/roadmemory/app/core) -----------------------
+function dist(a1, o1, a2, o2) {
+  const r = 6371000, t = Math.PI/180, dA = (a2-a1)*t, dO = (o2-o1)*t;
+  const x = Math.sin(dA/2)**2 + Math.cos(a1*t)*Math.cos(a2*t)*Math.sin(dO/2)**2;
+  return 2*r*Math.asin(Math.sqrt(x));
+}
+function evaluateLoad(hour) {
+  if (V.gear === 'PARK') return { score:0, tier:'FREE', reasons:['주차(P)'] };
+  let s = 0; const r = [];
+  if (V.turn !== 'OFF') { s += 45; r.push('방향지시등'); }
+  if (N.active && N.dist != null) { if (N.dist < 300) { s += 40; r.push('안내지점 300m'); } else if (N.dist < 800) { s += 20; r.push('안내지점 800m'); } }
+  if (Math.abs(L.accel) >= 8) { s += 35; r.push('급가감속'); }
+  if (V.wiper) { s += 20; r.push('와이퍼'); }
+  const moving = L.speed > 1;
+  if (moving && L.speed < 15 && V.brake) { s += 15; r.push('정체'); }
+  if (hour >= 20 || hour < 6) { s += 10; r.push('야간'); }
+  if (!moving && V.brake && V.turn === 'OFF') { s = Math.min(s, 20); r.push('정차'); }
+  s = Math.max(0, Math.min(100, s));
+  return { score:s, tier: s <= 30 ? 'FREE' : s <= 60 ? 'LIGHT' : 'BUSY', reasons:r };
+}
+const T = { scale:1, freeSince:null, lastSpoke:-1e15, count:0, start:0 };
+function tStart() { T.count = 0; T.start = Date.now(); T.lastSpoke = -1e15; T.freeSince = null; }
+function tLoad(res) { T.freeSince = res.tier === 'FREE' ? (T.freeSince ?? Date.now()) : null; }
+function canAsk() {
+  const now = Date.now(); if (T.freeSince == null) return false;
+  const budget = mode === 'DAILY' ? 1 : 6;
+  return T.count < budget && now - T.freeSince >= 5000*T.scale && now - T.lastSpoke >= 90000*T.scale && now - T.start >= 60000*T.scale;
+}
+function canRecall() { const now = Date.now(); return T.freeSince != null && now - T.freeSince >= 5000*T.scale && now - T.lastSpoke >= 90000*T.scale; }
+
+const Q = {
+  MORNING:['오늘 제일 기대되는 시간은 뭐예요?','오늘 누구랑 제일 먼저 인사하고 싶어요?','어젯밤에 꾼 꿈 기억나요?'],
+  AFTERNOON:['오늘 제일 웃겼던 일은 뭐였어요?','오늘 새로 알게 된 거 하나만 알려 줄래요?','오늘 점심에 뭐 먹었어요? 맛있었어요?'],
+  RAIN:['비 오는 날 하면 제일 좋은 건 뭐예요?'],
+  KIDS:['지금 창밖에서 제일 재미있게 생긴 걸 찾아볼래요?','요즘 제일 친한 친구는 누구예요?'],
+  PET:['오늘 산책에서 우리 강아지가 제일 좋아한 건 뭐였어요?','우리 강아지가 지금 창밖을 보면 무슨 생각을 할까요?','처음 우리 강아지를 만난 날 기억나요?','우리 강아지한테 오늘 하루를 한 단어로 붙여 준다면?'],
+  TRAVEL:['이번 여행에서 제일 하고 싶은 게 뭐예요?','지금 보이는 풍경에 이름을 붙인다면?','여기 오면 생각나는 노래가 있어요?','오늘 여행을 한 단어로 말하면?'],
+};
+function pickQuestion() {
+  const h = new Date().getHours(); let pool = [];
+  if (V.wiper) pool.push(...Q.RAIN);
+  if (mode === 'TRAVEL') pool.push(...Q.TRAVEL); else pool.push(...(h < 12 ? Q.MORNING : Q.AFTERNOON));
+  if (V.rearL || V.rearR) pool.push(...Q.KIDS);
+  if (pet) pool.push(...Q.PET, ...Q.PET);
+  pool = pool.filter(q => !asked.includes(q));
+  return pool.length ? pool[Math.floor(Math.random()*pool.length)] : '오늘 제일 기억에 남는 일 하나만 말해 줄래요?';
+}
+const recalled = new Set();
+function findRecall() {
+  const now = Date.now();
+  return db.moments.filter(m => !recalled.has(m.id) && now - m.at >= 7*DAY && dist(L.lat, L.lon, m.lat, m.lon) <= 300)
+                   .sort((a,b) => a.at - b.at)[0];
+}
+function recallPhrase(m) {
+  const d = Math.floor((Date.now() - m.at)/DAY);
+  const w = d >= 330 ? '작년 이맘때' : d >= 60 ? `${Math.floor(d/30)}달 전` : d >= 14 ? `${Math.floor(d/7)}주 전` : `${d}일 전`;
+  return `${w} 여기서 이런 이야기를 했었어요. "${m.summary}"`;
+}
+function nearestPlace(lat, lon) {
+  return db.places.map(p => [p, dist(lat, lon, p.lat, p.lon)]).filter(x => x[1] <= 150).sort((a,b) => a[1]-b[1])[0]?.[0];
+}
+function recordArrival(name) {
+  let p = nearestPlace(L.lat, L.lon);
+  if (!p) { p = { id:uid(), name: name || `새 장소 ${db.places.length+1}`, lat:L.lat, lon:L.lon, visits:0 }; db.places.push(p); }
+  p.visits++;
+  if (p.visits === 1) return [p, `${p.name}에 처음 온 날`];
+  if ([10,30,50,100,200].includes(p.visits)) return [p, `${p.name} ${p.visits}번째 방문`];
+  return [p, null];
+}
+function command(t) {
+  t = t.replace(/\s/g,'');
+  if (['지워줘','삭제해','방금거지워'].some(k => t.includes(k))) return 'DELETE';
+  if (['기록하지마','녹음하지마','그만기록','기록멈춰'].some(k => t.includes(k))) return 'PAUSE';
+  if (['다시기록','기록다시','기록시작'].some(k => t.includes(k))) return 'RESUME';
+  return null;
+}
+function mask(t) {
+  return t.replace(/\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,'[카드번호]')
+          .replace(/01[016789][-\s]?\d{3,4}[-\s]?\d{4}/g,'[전화번호]')
+          .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g,'[이메일]');
+}
+function summarize(t) { const f = (t.split(/[.?!\n]/).find(s => s.trim()) || t).trim(); return f.length <= 60 ? f : f.slice(0,57)+'...'; }
+
+// ---- voice (browser stand-in for Pleos TTS / STT) -------------------------------------------
+function speak(text, then) {
+  try {
+    if (!('speechSynthesis' in window)) throw 0;
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'ko-KR'; u.rate = 1.05;
+    let done = false; const fin = () => { if (!done) { done = true; then && then(); } };
+    u.onend = fin; u.onerror = fin; setTimeout(fin, 1500 + text.length*120);
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } catch (e) { then && setTimeout(then, 300); }
+}
+
+// ---- session --------------------------------------------------------------------------------
+function startTrip() {
+  trip = { id:uid(), start:Date.now(), mode, dest:N.dest };
+  tStart(); recalled.clear(); phase = 'DRIVING';
+  status = db.consent ? '주행 시작 · 여유 있을 때 한 가지만 물어볼게요' : '주행 시작 · 기록 동의 전이라 듣지 않아요';
+}
+function endTrip(name) {
+  if (!trip) return;
+  speechSynthesis?.cancel?.();
+  let announce = null;
+  if (L.ts) { const [, ms] = recordArrival(name || trip.dest); if (ms) { db.milestones.unshift({ id:uid(), at:Date.now(), title:ms }); announce = `오늘은 ${ms} 이에요. 기록해 둘게요.`; } }
+  const c = db.moments.filter(m => m.trip === trip.id).length;
+  if (mode === 'TRAVEL') announce = (announce ? announce + ' ' : '') + `오늘의 이야기에 순간 ${c}개를 담았어요.`;
+  save(); trip = null; phase = 'IDLE'; question = null;
+  status = `도착 · 이번 주행에서 ${c}개의 순간을 남겼어요`;
+  if (announce) speak(announce);
+}
+function askQuestion() {
+  if (!db.consent) { status = '기록 동의를 먼저 해 주세요'; return; }
+  const q = pickQuestion(); asked.push(q); if (asked.length > 20) asked.shift();
+  question = q; transcript = null; phase = 'ASKING'; T.count++; T.lastSpoke = Date.now(); status = '오늘의 한 질문';
+  speak(q, () => { phase = 'LISTENING'; status = '듣고 있어요 · "기록하지 마"라고 하면 멈춰요'; render(); });
+}
+function onFinal(text) {
+  if (!text.trim()) return;
+  const back = () => { phase = trip ? 'DRIVING' : 'IDLE'; };
+  const c = command(text);
+  if (c === 'PAUSE') { paused = true; status = '기록을 멈췄어요'; speak('알겠어요. 지금부터는 기록하지 않을게요.'); back(); return; }
+  if (c === 'RESUME') { paused = false; status = '기록을 다시 시작했어요'; speak('다시 기록할게요.'); back(); return; }
+  if (c === 'DELETE') { db.moments.sort((a,b)=>a.at-b.at).pop(); save(); status = '방금 기록을 지웠어요'; speak('방금 기록은 지웠어요.'); back(); return; }
+  if (paused || !db.consent) { back(); return; }
+  const m = mask(text), tags = [];
+  if (V.wiper) tags.push('비'); if (mode === 'TRAVEL') tags.push('여행'); if (V.rearL || V.rearR) tags.push('뒷좌석'); if (pet) tags.push('반려견');
+  db.moments.push({ id:uid(), trip: trip?.id || 'manual', at:Date.now(), lat:L.lat, lon:L.lon, q: question || '오늘 제일 기억에 남는 일 하나만 말해 줄래요?', summary: summarize(m), tags });
+  save(); transcript = m; status = '이 길 위에 남겨 두었어요'; speak('고마워요. 이 길에 남겨 둘게요.'); back();
+}
+function tick() {
+  if (V.gear !== lastGear) {
+    if (V.gear === 'DRIVE' && !trip) startTrip();
+    if (V.gear === 'PARK' && lastGear === 'DRIVE' && trip && Date.now() - trip.start > 20000) endTrip(N.dest);
+    lastGear = V.gear;
+  }
+  load = evaluateLoad(new Date().getHours()); tLoad(load);
+  if (trip && phase === 'DRIVING' && !paused && db.consent) {
+    const m = L.ts && canRecall() ? findRecall() : null;
+    if (m) { recalled.add(m.id); T.lastSpoke = Date.now(); question = recallPhrase(m); status = '같은 길 회상'; speak(question); }
+    else if (canAsk()) askQuestion();
+  }
+  render();
+}
+function moveTo(lat, lon) {
+  const ts = Date.now();
+  if (L.ts && ts > L.ts) {
+    const dt = (ts - L.ts)/1000, raw = dist(L.lat, L.lon, lat, lon)/dt*3.6;
+    const sp = L.speed === 0 ? raw : L.speed*0.4 + raw*0.6;
+    L.accel = (sp - L.speed)/dt; L.speed = sp;
+  }
+  L.lat = lat; L.lon = lon; L.ts = ts;
+}
+
+// ---- demo scenario (same script as ui/DemoScenario.kt) ---------------------------------------
+const S0 = [37.5, 127.0], STEP = 0.00012, SAMPLE = '오늘 체육 시간에 피구했는데 내가 마지막까지 살아남았어!';
+let demo = null;
+function startDemo() {
+  T.scale = 0.1; if (!db.consent) { db.consent = true; save(); }
+  db.moments.push({ id:uid(), trip:'seed', at:Date.now()-365*DAY, lat:S0[0], lon:S0[1]+STEP*60, q:'이 길에서 생각나는 거 있어요?', summary:'여기 지날 때마다 강아지 구름 찾자고 했어요', tags:['seed'] });
+  Object.assign(N, { active:true, dest:'초등학교', dist:900, text:null });
+  let s = 0, lon = S0[1], answeredAt = -1;
+  $('demoBtn').textContent = '데모 중지';
+  demo = setInterval(() => {
+    if (s === 0) Object.assign(V, { gear:'DRIVE', rearL:true, rearR:true, brake:false });
+    if (s === 2) { V.turn = 'LEFT'; N.dist = 250; N.text = '좌회전'; }
+    if (s === 8) { V.turn = 'OFF'; V.brake = true; N.dist = 1200; N.text = '직진'; }
+    if (s === 18) V.brake = false;
+    if (s === 32) V.brake = true;
+    if (s === 34) { N.dist = null; V.gear = 'PARK'; }
+    const stopped = (s >= 8 && s <= 17) || s >= 32;
+    lon += stopped ? 0 : (s >= 18 ? STEP*2 : STEP);
+    moveTo(S0[0], lon);
+    if (phase === 'LISTENING' && answeredAt < 0) answeredAt = s;
+    if (answeredAt >= 0 && s === answeredAt + 4 && phase === 'LISTENING') onFinal(SAMPLE);
+    tick();
+    if (++s > 38) stopDemo();
+  }, 1000);
+}
+function stopDemo() { clearInterval(demo); demo = null; T.scale = 1; $('demoBtn').textContent = '데모 주행 시작'; }
+
+// ---- render ---------------------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+function render() {
+  $('chip').textContent = mode === 'TRAVEL' ? '여행 모드' : '일상 모드';
+  $('chip').style.background = mode === 'TRAVEL' ? 'var(--mint)' : 'var(--accent)';
+  $('travelBtn').textContent = mode === 'TRAVEL' ? '일상 모드로' : '여행 모드';
+  const col = { FREE:'var(--green)', LIGHT:'var(--accent)', BUSY:'var(--red)' }[load.tier];
+  $('score').textContent = load.score;
+  $('tier').textContent = { FREE:'여유 · 대화 가능', LIGHT:'보통 · 짧은 안내만', BUSY:'집중 · 침묵' }[load.tier];
+  $('tier').style.color = col; $('bar').style.width = load.score + '%'; $('bar').style.background = col;
+  $('reasons').textContent = load.reasons.length ? load.reasons.join(' · ') : '부담 요인 없음';
+  const pax = [V.front, V.rearL, V.rearR].filter(Boolean).length;
+  const gear = { PARK:'P', DRIVE:'D', REVERSE:'R', NEUTRAL:'N', UNKNOWN:'-' }[V.gear];
+  $('vinfo').textContent =
+    `기어  ${gear}      속도  ${Math.round(L.speed)} km/h\n` +
+    `탑승  운전자 + ${pax}명${V.rearL || V.rearR ? ' (뒷좌석)' : ''}${pet ? ' + 반려견' : ''}\n` +
+    `와이퍼  ${V.wiper ? '작동' : '꺼짐'}      브레이크  ${V.brake ? '밟음' : '-'}\n` +
+    `목적지  ${N.dest || '-'}\n다음 안내  ${N.dist != null ? Math.round(N.dist) + 'm ' + (N.text || '') : '-'}`;
+  $('qlabel').textContent = phase === 'LISTENING' ? '듣고 있어요' : phase === 'SAVING' ? '저장 중' : status === '같은 길 회상' ? '같은 길 회상' : '오늘의 한 질문';
+  if (question) $('qtext').textContent = question;
+  $('transcript').textContent = transcript ? `“${transcript}”` : '';
+  $('status').textContent = status + (paused ? '  (기록 일시정지)' : '');
+  $('consent').checked = db.consent; $('pet').checked = pet;
+  const week = db.moments.filter(m => m.at >= Date.now()-7*DAY && !m.tags.includes('seed')).length;
+  $('feedHeader').textContent = `이번 주 가족 피드 · ${week}개 · 장소 ${db.places.length}곳`;
+  const recent = [...db.moments].sort((a,b) => b.at-a.at).slice(0,8);
+  $('feed').innerHTML = recent.length ? '' : '<div class="label">아직 남긴 순간이 없어요.</div>';
+  for (const m of recent) {
+    const d = new Date(m.at), el = document.createElement('div'); el.className = 'item';
+    el.innerHTML = `<div class="m"></div><div class="s"></div><div class="m"></div>`;
+    el.children[0].textContent = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}  ${m.tags.map(t => '#'+t).join(' ')}`;
+    el.children[1].textContent = m.summary; el.children[2].textContent = 'Q. ' + m.q;
+    $('feed').appendChild(el);
+  }
+  $('ms').textContent = db.milestones.slice(0,3).map(m => '★ ' + m.title).join('\n');
+}
+
+$('consent').onchange = e => { db.consent = e.target.checked; save(); status = db.consent ? '기록 동의됨 · 답변만 장소와 함께 남겨요' : '기록 꺼짐 · 아무것도 저장하지 않아요'; render(); };
+$('pet').onchange = e => { pet = e.target.checked; status = pet ? '반려견 동승 · 반려견과의 순간도 함께 남길게요' : '반려견 동승 해제'; if (pet && trip) { T.lastSpoke = Date.now(); speak('반려견도 함께 탔네요. 오늘 이야기에 같이 남길게요.'); } render(); };
+$('askBtn').onclick = () => { if (!trip) startTrip(); if (load.tier === 'BUSY') { status = `지금은 운전에 집중할 때예요 (부담 ${load.score})`; render(); return; } askQuestion(); render(); };
+$('travelBtn').onclick = () => { mode = mode === 'DAILY' ? 'TRAVEL' : 'DAILY'; status = mode === 'TRAVEL' ? '여행 모드를 켰어요. 오늘 이야기를 챕터로 남길게요.' : '일상 모드로 돌아왔어요. 하루에 한 질문만 할게요.'; speak(status, () => { T.lastSpoke = Date.now(); }); render(); };
+$('endBtn').onclick = () => { endTrip(N.dest); render(); };
+$('demoBtn').onclick = () => demo ? stopDemo() : startDemo();
+$('sampleBtn').onclick = () => { onFinal(SAMPLE); render(); };
+$('clearBtn').onclick = () => { if (confirm('장소, 주행, 순간 기록이 모두 지워지며 되돌릴 수 없습니다.')) { db = { consent:db.consent, places:[], moments:[], milestones:[] }; save(); status = '모든 기록을 지웠어요'; render(); } };
+setInterval(() => { if (!demo) tick(); }, 1000);
+render();
+</script>
+</body>
+</html>
